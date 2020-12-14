@@ -116,7 +116,7 @@ class Snake():
 
     def heuristic_move(self, food):
         node = Node(food, self, None, None)
-        bestChildren = []
+        best_children = []
         distance = 10000000
         if len(node.get_children()) != 0:
             if self.mode == "taxi":
@@ -124,76 +124,86 @@ class Snake():
                     child.distance_to_food()
                     if child.to_food < distance:
                         distance = child.to_food
-                        bestChildren = [child]
+                        best_children = [child]
             elif self.mode == "euclides":
                 for child in node.get_children():
                     child.distance_to_food()
                     if child.to_food < distance:
                         distance = child.to_food
-                        bestChildren = [child]
+                        best_children = [child]
             elif self.mode == "taxirandom":
                 for child in node.get_children():
                     child.distance_to_food()
                     if child.to_food < distance:
                         distance = child.to_food
-                        bestChildren = [child]
+                        best_children = [child]
                     if child.to_food == distance:
-                        bestChildren.append(child)
-            elif self.mode == "best first search":
+                        best_children.append(child)
+            elif self.mode == "euclides best first search" or self.mode == "taxi best first search":
+                new_directions = [[(0,-1), 0], [(0,1), 0], [(-1,0), 0], [(1,0), 0]]
                 if len(self.next_moves) == 0:
-                    start_node = node
-                    new_directions = [[(0,-1), 0], [(0,1), 0], [(-1,0), 0], [(1,0), 0]]
-                    open = [node]
-                    closed = []
-                    timeout = time.time() + 0.1
-                    while len(open) != 0 and time.time() < timeout:
-                        open.sort()
-                        current_node = open.pop(0)
-                        closed.append(current_node)
-                        current_node.distance_to_food()
-                        if current_node.to_food == 0:
-                            path = []
-                            while current_node != start_node:
-                                path.append(current_node)
-                                current_node = current_node.parent
-                            #path.append(start_node)
-                            # Return reversed path
-                            self.next_moves =  path[::-1]
-                            break
-                        if len(current_node.get_children()) == 0:
-                            path = []
-                            while current_node != start_node:
-                                path.append(current_node)
-                                current_node = current_node.parent
-                                next_moves =  path[::-1]
-                            for new_direction in new_directions:
-                                if next_moves[0].direction == new_direction[0]:
-                                    if len(next_moves) < new_direction[1]:
-                                        new_direction[1] = -len(next_moves)
+                    for first_child in node.get_children():
+                        start_node = first_child
+                        open = [start_node]
+                        closed = []
+                        timeout = time.time() + 0.05 / len(node.get_children())
+                        while len(open) != 0 and time.time() < timeout:
+                            open.sort()
+                            current_node = open.pop(0)
+                            closed.append(current_node)
+                            current_node.distance_to_food()
+                            if current_node.to_food == 0:
+                                path = []
+                                while current_node != node:
+                                    path.append(current_node)
+                                    current_node = current_node.parent
+                                # Return reversed path
+                                self.next_moves =  path[::-1]
+                                break
+                            for child in current_node.get_children():
+                                if child in closed:
+                                    continue
+                                if child not in open:
+                                    child.distance_to_food()
+                                    open.append(child)
+                                    for new_direction in new_directions:
+                                        if new_direction[0] == first_child.direction:
+                                            if child.from_start > new_direction[1]:
+                                                new_direction[1] = child.from_start
 
-                        for child in current_node.get_children():
-                            if child in closed:
-                                continue
-                            child.distance_to_food()
-                            if child not in open:
-                                open.append(child)
-
-                    best = 10000000
-                    print new_directions
-                    for new_direction in new_directions:
-                        if new_direction[1] != -10000:
-                            if new_direction[1] < best:
-                                best = new_direction[1]
-                                bestChildren = [Node(food, self, None, new_direction[0])]
+#                    if len(self.next_moves) == 0:
+#                        for first_child in node.get_children():
+#                            start_node = first_child
+#                            open = [first_child]
+#                            closed = []
+#                            timeout = time.time() + 0.025
+#                            while len(open) != 0 and time.time() < timeout:
+#                                current_node = open.pop(0)
+#                                closed.append(current_node)
+#                                for child in current_node.get_children():
+#                                    if child in closed:
+#                                        continue
+#                                    if child not in open:
+#                                        for new_direction in new_directions:
+#                                            if new_direction[0] == first_child.direction:
+#                                                if child.from_start > new_direction[1]:
+#                                                    new_direction[1] = child.from_start
+#                                        open.append(child)
                     if len(self.next_moves) == 0:
-                        bestChildren = [Node(food, self, None, random.choice(self.get_possible_moves()))]
+                        best = 0
+                        for new_direction in new_directions:
+                            if best < new_direction[1]:
+                                best = new_direction[1]
+                                best_children = [Node(food, self, None, new_direction[0])]
 
-            if len(self.next_moves) == 0:
-                bestChild = random.choice(bestChildren)
-                self.move_to(bestChild.direction)
-            else:
+            if len(self.next_moves) == 0 and len(best_children) != 0:
+                best_child = random.choice(best_children)
+                self.move_to(best_child.direction)
+            elif len(self.next_moves) != 0:
                 self.move_to(self.next_moves[0].direction)
                 self.next_moves.pop(0)
+            elif len(best_children) == 0:
+                self.reset()
         else:
             self.reset()
 
@@ -231,7 +241,6 @@ class Node():
         self.direction = direction
         self.from_start = from_start
         self.to_food = None
-        self.f = None
         self.deaths = 0
 
     def get_snake(self):
@@ -261,9 +270,9 @@ class Node():
             return math.sqrt((node_head[0] - node_food[0])**2 + (node_head[1] - node_food[1])**2)
 
     def distance_to_food(self):
-        if self.snake.mode == "euclides" or self.snake.mode == "best first search":
+        if self.snake.mode == "euclides" or self.snake.mode == "euclides best first search":
             self.to_food = self.euclides()
-        elif self.snake.mode == "taxi" or self.snake.mode == "taxirandom":
+        elif self.snake.mode == "taxi" or self.snake.mode == "taxirandom" or self.snake.mode == "taxi best first search":
             self.to_food = self.taxi()
         self.f = self.to_food + self.from_start
 
@@ -275,9 +284,6 @@ class Node():
             new_snake.move_to(direction)
             array_of_children.append(Node(self.food, new_snake, self, direction, self.from_start + 1))
         return array_of_children
-
-    def update_deaths():
-        self.deaths += 1
 
 screen_width = 600
 screen_height = 600
@@ -301,13 +307,13 @@ def main():
     surface = surface.convert()
     drawGrid(surface)
 
-    snake = Snake("walls", "best first search")
+    snake = Snake("walls", "euclides best first search")
     food = Food(snake)
 
     myfont = pygame.font.SysFont("monospace",16)
 
     while (True):
-        #clock.tick(10)
+        #clock.tick(20)
         snake.handle_keys()
         drawGrid(surface)
         snake.heuristic_move(food)
