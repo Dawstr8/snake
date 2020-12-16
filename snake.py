@@ -59,8 +59,8 @@ class Snake():
         if (len(self.positions) > 2 and new in self.positions[2:]) or not (new[0] >= 0 and new[1] >= 0 and new[0] < grid_width and new[1] < grid_height):
             self.lives -= 1
             if self.lives > 0:
-                self.reset()
-            print("LOST")
+                #self.reset()
+                print("LOST")
         else:
             self.positions.insert(0,new)
             if len(self.positions) > self.length:
@@ -165,19 +165,22 @@ class Snake():
                             child[1] = i
                 #if food_position < head_position:
                 #    best_child = Node(food, self, None, (hamiltonian_cycle[(head_position+1)%(grid_width*grid_height)][0]-hamiltonian_cycle[head_position][0], hamiltonian_cycle[(head_position+1)%(grid_width*grid_height)][1] - hamiltonian_cycle[head_position][1]))
-                if self.length < 700:
+                if self.length < 60 * (grid_width * grid_height) / 100:
                     best_child = Node(food, self, None, (hamiltonian_cycle[(head_position+1)%(grid_width*grid_height)][0]-hamiltonian_cycle[head_position][0], hamiltonian_cycle[(head_position+1)%(grid_width*grid_height)][1] - hamiltonian_cycle[head_position][1]))
                     best = (food_position - head_position - 1)%(grid_width*grid_height)
                     for child in children:
+                        positions = copy.deepcopy(self.positions)
                         distance_to_food = (food_position - child[1])%(grid_width*grid_height)
                         distance_to_head = (head_position - child[1])%(grid_width*grid_height)
                         if distance_to_food < best:
                             can_go = True
                             for i in range((child[1] - head_position)%(grid_width*grid_height)):
-                                print i, hamiltonian_cycle[(i + child[1])%(grid_width*grid_height)]
-                                if hamiltonian_cycle[(i + child[1])%(grid_width*grid_height)] in self.positions:
+                                if hamiltonian_cycle[(i + child[1])%(grid_width*grid_height)] in positions:
                                     can_go = False
                                     break
+                                #positions.pop(len(positions) - 1)
+                                #if len(positions) == 0:
+                                #     break
                             if can_go:
                                 best = distance_to_food
                                 best_child = Node(food, self, None, (hamiltonian_cycle[child[1]][0]-hamiltonian_cycle[head_position][0], hamiltonian_cycle[child[1]][1] - hamiltonian_cycle[head_position][1]))
@@ -254,9 +257,11 @@ class Snake():
                 self.move_to(self.next_moves[0].direction)
                 self.next_moves.pop(0)
             elif len(best_children) == 0:
-                self.reset()
+                #self.reset()
+                print "hey"
         else:
-            self.reset()
+            #self.reset()
+            print "hey"
 
 class Food():
     def __init__(self, snake):
@@ -265,10 +270,11 @@ class Food():
         self.randomize_position(snake)
 
     def randomize_position(self, snake):
-        self.position = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
-        while self.position in snake.positions:
+        if snake.length != (grid_width * grid_height):
             self.position = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
-            #self.position = (random.randint(0, grid_width-1)*gridsize, random.randint(0, grid_height-1)*gridsize)
+            while self.position in snake.positions:
+                self.position = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
+                #self.position = (random.randint(0, grid_width-1)*gridsize, random.randint(0, grid_height-1)*gridsize)
 
     def draw(self, surface):
         r = pygame.Rect((self.position[0]*gridsize, self.position[1]*gridsize), (gridsize, gridsize))
@@ -379,7 +385,7 @@ def main():
     myfont = pygame.font.SysFont("monospace",16)
 
     while (True):
-        #clock.tick(1000)
+        #clock.tick(100)
         snake.handle_keys()
         drawGrid(surface)
         snake.heuristic_move(food)
