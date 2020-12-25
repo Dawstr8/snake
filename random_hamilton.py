@@ -20,8 +20,11 @@ class Node():
     def get_neighbors(self, size):
         array_of_neighbors = []
         for direction in directions:
-            if self.position[0] + direction[0] < size and self.position[0] + direction[0] >= 0 and self.position[1] + direction[1] < size and self.position[1] + direction[1] >= 0:
-                array_of_neighbors.append((self.position[0] + direction[0], self.position[1] + direction[1]))
+            if modulo:
+                array_of_neighbors.append(((self.position[0] + direction[0])%size, (self.position[1] + direction[1])%size))
+            else:
+                if self.position[0] + direction[0] < size and self.position[0] + direction[0] >= 0 and self.position[1] + direction[1] < size and self.position[1] + direction[1] >= 0:
+                    array_of_neighbors.append((self.position[0] + direction[0], self.position[1] + direction[1]))
         return array_of_neighbors
 
 def is_hamiltonian_cycle(temp_hamiltonian_cycle, size):
@@ -37,13 +40,15 @@ def is_hamiltonian_cycle(temp_hamiltonian_cycle, size):
 
 with open('answer.txt', 'w') as file:
 
+    modulo = False
+
     up = (0,-1)
     down = (0,1)
     left = (-1,0)
     right = (1,0)
     directions = [up, down, left, right]
 
-    ultimate_size = 30
+    ultimate_size = 20
     grid_width = ultimate_size
     grid_height = ultimate_size
 
@@ -59,7 +64,11 @@ with open('answer.txt', 'w') as file:
             for j in range(grid_height - 1):
                 hamiltonian_cycle.append((j + 1, i))
 
-    timeout = time.time() + 600
+    #cycle = str(hamiltonian_cycle)
+    #file.write(cycle)
+    #exit()
+
+    timeout = time.time() + 60
     result_hamiltonian_cycle = []
 
     while time.time() < timeout:
