@@ -11,20 +11,146 @@ options = {
     'AI': ['order', 'heuristic', 'best first search', 'A*'],
     'distance': ['taxi', 'euclides', 'hamilton'],
     'map type': ['with walls', 'without walls'],
-    'time': 0.001, #1.0 equals to 1 sec per move (pretty slow)
+    'speed': 100.0, #frames per second
     'showing': ['score', 'thinking', 'average'], # sratatata
-    'safety': 1 # 1 - 10
+    'size': 10, #dividing 600 and preferably not odd
+    'generating cycle time': 10 #selfexplanatory
 }
 
 game_options = {
     'AI': 'heuristic',
-    'distance': 'euclides',
+    'distance': 'taxi',
     'must win': 'yes',
-    'map type': 'with walls',
-    'time': 0.1,
+    'map type': 'without walls',
+    'speed': 100.0,
     'showing': ['thinking'],
-    'safety': 1
+    'size': 30,
+    'generating cycle time': 0,
+    'lives': 1
 }
+
+screen_width = 600
+screen_height = 600
+
+gridsize = screen_width/game_options['size']
+grid_width = game_options['size']
+grid_height = game_options['size']
+
+up = (0,-1)
+down = (0,1)
+left = (-1,0)
+right = (1,0)
+
+directions = [up, down, left, right]
+
+hamiltonian_cycle = []
+
+if game_options['map type'] == 'with walls':
+    for i in range(grid_width):
+        hamiltonian_cycle.append((0, grid_width - 1 - i))
+    for i in range(grid_width):
+        if (i + 1) % 2 == 0:
+            for j in range(grid_height - 1):
+                hamiltonian_cycle.append((grid_width - 1 - j, i))
+        else:
+            for j in range(grid_height - 1):
+                hamiltonian_cycle.append((j + 1, i))
+elif game_options['map type'] == 'without walls':
+    for i in range(grid_width):
+        if i % 2 == 0:
+            for j in range(grid_height):
+                hamiltonian_cycle.append((grid_width - 1 - j, i))
+        else:
+            for j in range(grid_height):
+                hamiltonian_cycle.append((j, i))
+
+class Point():
+    def __init__(self, position):
+        self.position = position
+
+    def get_neighbors(self, size):
+        array_of_neighbors = []
+        for direction in directions:
+            if game_options['map type'] == 'without walls':
+                array_of_neighbors.append(((self.position[0] + direction[0])%size, (self.position[1] + direction[1])%size))
+            else:
+                if self.position[0] + direction[0] < size and self.position[0] + direction[0] >= 0 and self.position[1] + direction[1] < size and self.position[1] + direction[1] >= 0:
+                    array_of_neighbors.append((self.position[0] + direction[0], self.position[1] + direction[1]))
+        return array_of_neighbors
+
+def is_hamiltonian_cycle(temp_hamiltonian_cycle, size):
+    are_neighbors = True
+    for i in range(len(temp_hamiltonian_cycle) - 1):
+        if temp_hamiltonian_cycle[i] not in Point(temp_hamiltonian_cycle[i+1]).get_neighbors(size):
+            are_neighbors = False
+    if len(temp_hamiltonian_cycle) == size ** 2 and temp_hamiltonian_cycle[0] in Point(temp_hamiltonian_cycle[len(temp_hamiltonian_cycle) - 1]).get_neighbors(size) and are_neighbors:
+        return True
+    else:
+        return False
+
+timeout = time.time() + game_options['generating cycle time']
+result_hamiltonian_cycle = []
+
+while time.time() < timeout:
+    neighbor_position = 1
+    random_point_position = 0
+    while abs(neighbor_position - random_point_position) == 1:
+        random_point = random.choice(hamiltonian_cycle)
+        for neighbor in Point(random_point).get_neighbors(game_options['size']):
+            for i in range(game_options['size'] ** 2):
+                if hamiltonian_cycle[i] == neighbor:
+                    neighbor_position = i
+                if hamiltonian_cycle[i] == random_point:
+                    random_point_position = i
+            if abs(neighbor_position - random_point_position) != 1:
+                break
+
+    hamiltonian_small_cycle = []
+    hamiltonian_big_cycle = []
+    for i in range(game_options['size'] ** 2):
+        if i < neighbor_position and i > random_point_position:
+            hamiltonian_small_cycle.append(hamiltonian_cycle[i])
+        elif i > neighbor_position and i < random_point_position:
+            hamiltonian_big_cycle.append(hamiltonian_cycle[i])
+        else:
+            hamiltonian_small_cycle.append(hamiltonian_cycle[i])
+
+    first_neighbor_position = -1
+    second_neighbor_position = -1
+    counter = 0
+    first_point_position = 0
+    second_point_position = 0
+    while abs(first_neighbor_position - second_neighbor_position) != 1 or first_neighbor_position == -1 or second_neighbor_position == -1:
+        first_point_position = random.randint(0, len(hamiltonian_small_cycle) - 1)
+        second_point_position = (first_point_position + 1)%len(hamiltonian_small_cycle)
+        for first_neighbor in Point(hamiltonian_small_cycle[first_point_position]).get_neighbors(game_options['size']):
+            for second_neighbor in Point(hamiltonian_small_cycle[second_point_position]).get_neighbors(game_options['size']):
+                for i in range(len(hamiltonian_big_cycle)):
+                    if hamiltonian_big_cycle[i] == first_neighbor:
+                        first_neighbor_position = i
+                    if hamiltonian_big_cycle[i] == second_neighbor:
+                        second_neighbor_position = i
+                if abs(first_neighbor_position - second_neighbor_position) == 1 and first_neighbor_position != -1 and second_neighbor_position != -1:
+                    break
+        counter += 1
+        print counter
+        if counter > 1000:
+            break
+
+    result_hamiltonian_cycle = []
+    for i in range(len(hamiltonian_big_cycle)):
+        if i == min(first_neighbor_position, second_neighbor_position):
+            result_hamiltonian_cycle.append(hamiltonian_big_cycle[i])
+            if hamiltonian_small_cycle[first_point_position] in Point(hamiltonian_big_cycle[i]).get_neighbors(game_options['size']):
+                for j in range(len(hamiltonian_small_cycle)):
+                    result_hamiltonian_cycle.append(hamiltonian_small_cycle[(j + first_point_position)%len(hamiltonian_small_cycle)])
+            else:
+                for j in range(len(hamiltonian_small_cycle)):
+                    result_hamiltonian_cycle.append(hamiltonian_small_cycle[(j + second_point_position)%len(hamiltonian_small_cycle)])
+        else:
+             result_hamiltonian_cycle.append(hamiltonian_big_cycle[i])
+    if is_hamiltonian_cycle(result_hamiltonian_cycle, game_options['size']):
+        hamiltonian_cycle = result_hamiltonian_cycle
 
 class Snake():
     def __init__(self):
@@ -32,7 +158,7 @@ class Snake():
         self.positions = [(grid_width/2, grid_height/2)]
         self.direction = random.choice([up, down, left, right])
         self.color = (13, 250, 144)
-        self.lives = 1
+        self.lives = game_options['lives']
         self.route = []
         self.state = 'found'
         self.ended = False
@@ -68,7 +194,7 @@ class Snake():
             cur = self.get_head_position()
             x,y = direction
             new = self.new_move(cur, x, y)
-            if (len(self.positions) > 2 and new in self.positions[2:]) or not (new[0] >= 0 and new[1] >= 0 and new[0] < grid_width and new[1] < grid_height):
+            if (len(self.positions) > 2 and new in self.positions[1:]) or not (new[0] >= 0 and new[1] >= 0 and new[0] < grid_width and new[1] < grid_height):
                     self.ended = True
                     self.reset()
             else:
@@ -185,6 +311,8 @@ class Food():
             self.position = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
             while self.position in snake.positions:
                 self.position = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
+        elif snake.lives > 1:
+            self.position = (0, 0)
         else:
             self.position = None
 
@@ -291,9 +419,8 @@ class Node():
             if (food_position - head_position)%(grid_width*grid_height) > (parent_head_position - head_position)%(grid_width*grid_height):
                 return False
 
-        if distance_to_tail <= 5 and distance_to_tail != 0:
+        if distance_to_tail <= 10 and distance_to_tail != 0:
             return False
-
         return True
 
     def distance_to_food(self):
@@ -342,7 +469,7 @@ class Node():
 
     def best_first_search(self):
         route = []
-        timeout = time.time() + game_options['time']
+        timeout = time.time() + (game_options['speed'] ** -1)
 
         self.distance_to_food()
         self.function_value()
@@ -368,9 +495,9 @@ class Node():
                     open.append(child)
 
         if len(open) != 0:
-            return self.heuristic()
+            return [self.get_children()[0]]
         if len(open) == 0:
-            return self.heuristic()
+            return [self.get_children()[0]]
 
     def get_route(self):
         if game_options['AI'] == 'order':
@@ -379,23 +506,6 @@ class Node():
             return self.heuristic()
         elif game_options['AI'] == 'best first search' or game_options['AI'] == 'A*':
             return self.best_first_search()
-
-
-screen_width = 600
-screen_height = 600
-
-gridsize = 30
-grid_width = screen_width/gridsize
-grid_height = screen_height/gridsize
-
-up = (0,-1)
-down = (0,1)
-left = (-1,0)
-right = (1,0)
-
-directions = [up, down, left, right]
-
-hamiltonian_cycle = [(18, 18), (18, 17), (18, 16), (18, 15), (17, 15), (17, 14), (18, 14), (18, 13), (18, 12), (18, 11), (17, 11), (17, 12), (17, 13), (16, 13), (16, 14), (16, 15), (16, 16), (17, 16), (17, 17), (16, 17), (15, 17), (14, 17), (14, 18), (15, 18), (16, 18), (17, 18), (17, 19), (16, 19), (15, 19), (14, 19), (13, 19), (13, 18), (12, 18), (12, 19), (11, 19), (11, 18), (10, 18), (10, 19), (9, 19), (9, 18), (9, 17), (8, 17), (8, 16), (8, 15), (8, 14), (9, 14), (10, 14), (10, 15), (9, 15), (9, 16), (10, 16), (10, 17), (11, 17), (11, 16), (11, 15), (11, 14), (11, 13), (11, 12), (10, 12), (10, 13), (9, 13), (9, 12), (9, 11), (9, 10), (9, 9), (9, 8), (8, 8), (8, 9), (8, 10), (8, 11), (8, 12), (8, 13), (7, 13), (7, 14), (7, 15), (7, 16), (7, 17), (7, 18), (8, 18), (8, 19), (7, 19), (6, 19), (5, 19), (4, 19), (4, 18), (4, 17), (4, 16), (4, 15), (4, 14), (4, 13), (5, 13), (5, 14), (5, 15), (5, 16), (5, 17), (5, 18), (6, 18), (6, 17), (6, 16), (6, 15), (6, 14), (6, 13), (6, 12), (7, 12), (7, 11), (6, 11), (6, 10), (7, 10), (7, 9), (6, 9), (6, 8), (7, 8), (7, 7), (6, 7), (5, 7), (5, 8), (4, 8), (4, 7), (4, 6), (5, 6), (5, 5), (4, 5), (3, 5), (3, 6), (3, 7), (3, 8), (2, 8), (1, 8), (1, 9), (2, 9), (3, 9), (4, 9), (5, 9), (5, 10), (5, 11), (5, 12), (4, 12), (4, 11), (4, 10), (3, 10), (3, 11), (3, 12), (3, 13), (3, 14), (3, 15), (3, 16), (3, 17), (3, 18), (3, 19), (2, 19), (2, 18), (2, 17), (2, 16), (1, 16), (1, 17), (1, 18), (1, 19), (0, 19), (0, 18), (0, 17), (0, 16), (0, 15), (0, 14), (1, 14), (1, 15), (2, 15), (2, 14), (2, 13), (1, 13), (0, 13), (0, 12), (1, 12), (2, 12), (2, 11), (2, 10), (1, 10), (1, 11), (0, 11), (0, 10), (0, 9), (0, 8), (0, 7), (0, 6), (1, 6), (1, 7), (2, 7), (2, 6), (2, 5), (2, 4), (2, 3), (2, 2), (3, 2), (3, 1), (2, 1), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (0, 5), (0, 4), (0, 3), (0, 2), (0, 1), (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (6, 1), (5, 1), (4, 1), (4, 2), (4, 3), (3, 3), (3, 4), (4, 4), (5, 4), (5, 3), (5, 2), (6, 2), (7, 2), (7, 1), (7, 0), (8, 0), (8, 1), (8, 2), (8, 3), (9, 3), (10, 3), (10, 4), (10, 5), (11, 5), (11, 4), (12, 4), (12, 3), (11, 3), (11, 2), (10, 2), (9, 2), (9, 1), (9, 0), (10, 0), (10, 1), (11, 1), (11, 0), (12, 0), (12, 1), (12, 2), (13, 2), (13, 3), (13, 4), (14, 4), (14, 3), (15, 3), (15, 4), (15, 5), (14, 5), (14, 6), (15, 6), (16, 6), (16, 7), (15, 7), (14, 7), (13, 7), (13, 6), (13, 5), (12, 5), (12, 6), (12, 7), (11, 7), (11, 6), (10, 6), (9, 6), (9, 5), (9, 4), (8, 4), (8, 5), (7, 5), (7, 4), (7, 3), (6, 3), (6, 4), (6, 5), (6, 6), (7, 6), (8, 6), (8, 7), (9, 7), (10, 7), (10, 8), (10, 9), (10, 10), (10, 11), (11, 11), (12, 11), (13, 11), (13, 10), (12, 10), (11, 10), (11, 9), (11, 8), (12, 8), (12, 9), (13, 9), (13, 8), (14, 8), (14, 9), (14, 10), (14, 11), (14, 12), (14, 13), (13, 13), (13, 12), (12, 12), (12, 13), (12, 14), (13, 14), (13, 15), (12, 15), (12, 16), (12, 17), (13, 17), (13, 16), (14, 16), (15, 16), (15, 15), (14, 15), (14, 14), (15, 14), (15, 13), (15, 12), (16, 12), (16, 11), (15, 11), (15, 10), (15, 9), (15, 8), (16, 8), (16, 9), (16, 10), (17, 10), (17, 9), (17, 8), (18, 8), (18, 7), (17, 7), (17, 6), (18, 6), (18, 5), (17, 5), (16, 5), (16, 4), (17, 4), (18, 4), (18, 3), (17, 3), (16, 3), (16, 2), (17, 2), (17, 1), (16, 1), (15, 1), (15, 2), (14, 2), (14, 1), (13, 1), (13, 0), (14, 0), (15, 0), (16, 0), (17, 0), (18, 0), (19, 0), (19, 1), (18, 1), (18, 2), (19, 2), (19, 3), (19, 4), (19, 5), (19, 6), (19, 7), (19, 8), (19, 9), (18, 9), (18, 10), (19, 10), (19, 11), (19, 12), (19, 13), (19, 14), (19, 15), (19, 16), (19, 17), (19, 18), (19, 19), (18, 19)]
 
 def main():
     pygame.init()
@@ -412,7 +522,7 @@ def main():
     myfont = pygame.font.SysFont("monospace",16)
 
     while True:
-        clock.tick(game_options['time'] ** -1)
+        clock.tick(game_options['speed'])
         snake.handle_keys()
         drawGrid(surface)
         if not snake.ended:
@@ -425,8 +535,8 @@ def main():
         snake.data['moves'] += 1
         snake.data['from last'] += 1
         if snake.get_head_position() == food.position:
-            pygame.mixer.music.load('eating.wav')
-            pygame.mixer.music.play(0)
+            #pygame.mixer.music.load('eating.wav')
+            #pygame.mixer.music.play(0)
             snake.length += 1
             food.randomize_position(snake)
             snake.data['score'] += 1
